@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Network Connectivity Diagnostic Toolkit
+# This script automates network diagnostics using tools like ping, traceroute, and nslookup.
+# It is designed for use by both technical and non-technical staff.
+
+# Function to print a section header
+echo_section() {
+  echo -e "\n========== $1 =========="
+}
+
+# Check if the script is run as root
+echo_section "Check for Root Privileges"
+if [[ $EUID -ne 0 ]]; then
+  echo "Warning: It's recommended to run this script as root for full diagnostics."
+fi
+
+# Step 1: Check local network interface
+echo_section "Network Interface Information"
+ip addr show
+
+# Step 2: Check default gateway
+echo_section "Default Gateway"
+GW=$(ip route | grep default | awk '{print $3}')
+if [[ -n "$GW" ]]; then
+  echo "Default Gateway: $GW"
+else
+  echo "No default gateway found."
+fi
+
+# Step 3: Ping the gateway
+echo_section "Ping Default Gateway"
+if [[ -n "$GW" ]]; then
+  ping -c 4 "$GW"
+else
+  echo "Skipping: No default gateway."
+fi
+
+# Step 4: Check DNS resolution
+echo_section "DNS Resolution Check"
+nslookup google.com
+if [[ $? -ne 0 ]]; then
+  echo "DNS resolution failed. Check your DNS settings."
+fi
+
+# Step 5: Test connectivity to a public site
+echo_section "Ping Public Site (Google DNS)"
+ping -c 4 8.8.8.8
+if [[ $? -ne 0 ]]; then
+  echo "Unable to reach public site. Possible network or ISP issue."
+fi
+
+# Step 6: Check HTTP connectivity
+echo_section "HTTP Connectivity Check"
+HTTP_RESPONSE=$(curl -Is http://www.google.com | head -n 1)
+echo "HTTP Response: $HTTP_RESPONSE"
+
+# Step 7: Trace route to a public site
+echo_section "Traceroute to Google"
+traceroute google.com
+
+# Step 8: Display system's DNS settings
+echo_section "DNS Settings"
+cat /etc/resolv.conf
+
+# Step 9: Verify internet connectivity
+echo_section "Internet Connectivity Test"
+if curl -s https://www.google.com > /dev/null; then
+  echo "Internet is accessible."
+else
+  echo "Internet is not accessible."
+fi
+
+# Step 10: Summary and next steps
+echo_section "Summary of Diagnostics"
+if ping -c 1 8.8.8.8 > /dev/null 2>&1; then
+  echo "Network connectivity to the internet is operational."
+else
+  echo "Network connectivity issues detected. Please check your modem, router, or contact your ISP."
+fi
+
+echo_section "Troubleshooting Complete"
+
